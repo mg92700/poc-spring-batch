@@ -23,3 +23,20 @@ Spring Batch est un framework permettant de créer des traitements batch robuste
 # 🏗 Architecture
 
 Architecture simplifiée :
+
+Controller (REST)
+│
+▼
+JobLauncher
+│
+▼
+Spring Batch Job
+│
+▼
+Step
+│
+▼
+Tasklet / Chunk Processing
+│
+▼
+Database (Batch metadata)
