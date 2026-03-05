@@ -1,6 +1,5 @@
 package com.poc_spring_batch.service;
 
-
 import com.poc_spring_batch.domain.FileRecord;
 import com.poc_spring_batch.repository.FileRecordRepository;
 import lombok.extern.log4j.Log4j2;
@@ -8,7 +7,7 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameters;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
-import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,27 +18,24 @@ import java.util.Map;
 @Service
 public class BatchService {
 
-    private final JobLauncher jobLauncher;
+    private final JobOperator jobOperator;
     private final Job scanDirectoryJob;
     private final FileRecordRepository repository;
 
-    public BatchService(JobLauncher jobLauncher, Job scanDirectoryJob, FileRecordRepository repository) {
-        this.jobLauncher = jobLauncher;
+    public BatchService(JobOperator jobOperator, Job scanDirectoryJob, FileRecordRepository repository) {
+        this.jobOperator = jobOperator;
         this.scanDirectoryJob = scanDirectoryJob;
         this.repository = repository;
     }
 
-    /**
-     * Lance le job de scan. Chaque appel crée une nouvelle instance grâce au runId unique.
-     */
     public JobResult launch() {
         try {
             JobParameters params = new JobParametersBuilder()
                     .addLong("runId", System.currentTimeMillis())
                     .toJobParameters();
 
-            JobExecution exec = jobLauncher.run(scanDirectoryJob, params);
-            log.info("Job termine avec le statut : {}", exec.getStatus());
+            JobExecution exec = jobOperator.start(scanDirectoryJob, params);
+            log.info("Job terminé avec le statut : {}", exec.getStatus());
 
             return new JobResult(
                     exec.getJobInstanceId(),

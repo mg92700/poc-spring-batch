@@ -33,7 +33,7 @@ public class FileItemProcessor implements ItemProcessor<File, FileRecord> {
         return FileRecord.builder()
                 .fileName(file.getName())
                 .filePath(file.getAbsolutePath())
-                .title(title)
+                .title(file.getName())
                 .readAt(LocalDateTime.now())
                 .fileSizeBytes(file.length())
                 .status(FileRecord.FileStatus.SUCCESS)
