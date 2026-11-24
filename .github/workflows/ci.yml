@@ -1,19 +1,58 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# moindre privilège : le jeton du workflow ne peut que lire le dépôt
+permissions:
+  contents: read
 
 jobs:
-  build:
+  backend:
+    name: Backend (tests unitaires + intégration)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # diff-cover compare la branche à la branche cible
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
           cache: maven
-      - name: Build et tests
-        run: mvn -B -ntp -f ./pom.xml verify
+      # Docker est préinstallé : les tests Testcontainers peuvent démarrer leurs conteneurs
+      - run: mvn -B -ntp verify
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: jacoco-report
+          path: |
+            **/target/site/jacoco
+          if-no-files-found: ignore
+      # porte de couverture : au moins 80 % des lignes ajoutées ou modifiées par la PR doivent être couvertes
+      - name: Couverture du code nouveau (≥ 80 %)
+        if: github.event_name == 'pull_request'
+        run: |
+          pip install diff-cover
+          mapfile -t reports < <(find . -path '*/target/site/jacoco/jacoco.xml' -not -path '*/node_modules/*')
+          mapfile -t roots < <(find . -type d -path '*/src/main/java' -not -path '*/target/*' -not -path '*/node_modules/*')
+          if [ ${#reports[@]} -eq 0 ]; then
+            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q 'src/main/java/'; then
+              echo "::error::Code Java modifié sans rapport JaCoCo : ajoute des tests"
+              exit 1
+            fi
+            echo "Aucun code Java modifié : contrôle de couverture ignoré" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          diff-cover "${reports[@]}" \
+            --compare-branch=origin/${{ github.base_ref }} \
+            --src-roots "${roots[@]}" \
+            --fail-under=80 \
+            --markdown-report diff-coverage.md
+          cat diff-coverage.md >> "$GITHUB_STEP_SUMMARY"
